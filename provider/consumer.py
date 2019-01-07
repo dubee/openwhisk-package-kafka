@@ -468,7 +468,15 @@ class ConsumerProcess (Process):
 
         return offsets
 
+
+try:
+  json.loads(a)
+except ValueError:
+  print "asdf"
+
+
     def __encodeMessageIfNeeded(self, value):
+        value = None
         # let's make sure whatever data we're getting is utf-8 encoded
         try:
             value.decode('utf-8')
@@ -479,6 +487,9 @@ class ConsumerProcess (Process):
             except UnicodeDecodeError:
                 logging.warn('[{}] Value contains non-unicode bytes. Replacing invalid bytes.'.format(self.trigger))
                 value = unicode(value, errors='replace').encode('utf-8')
+        except AttributeError:
+           logging.warn('[{}] Value is a NoneType'.format(self.trigger))
+           value = ""
 
         if self.encodeValueAsJSON:
             try:

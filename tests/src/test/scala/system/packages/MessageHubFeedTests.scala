@@ -165,6 +165,49 @@ class MessageHubFeedTests
       retry(wsk.trigger.get(verificationName2), 60, Some(1.second))
   }
 
+  it should "fire a trigger for an empty message value" in withAssetCleaner(wskprops) {
+    // create trigger
+    val currentTime = s"${System.currentTimeMillis}"
+
+    (wp, assetHelper) =>
+      val triggerName = s"/_/dummyMessageHubTrigger-$currentTime"
+
+      createTrigger(assetHelper, triggerName, parameters = Map(
+        "user" -> getAsJson("user"),
+        "password" -> getAsJson("password"),
+        "api_key" -> getAsJson("api_key"),
+        "kafka_admin_url" -> getAsJson("kafka_admin_url"),
+        "kafka_brokers_sasl" -> getAsJson("brokers"),
+        "topic" -> topic.toJson,
+        "isBinaryKey" -> false.toJson,
+        "isBinaryValue" -> false.toJson))
+
+      val defaultAction = Some("dat/createTriggerActionsFromKey.js")
+      val defaultActionName = s"helloKafka-${currentTime}"
+
+      assetHelper.withCleaner(wsk.action, defaultActionName) { (action, name) =>
+        action.create(name, defaultAction)
+      }
+      assetHelper.withCleaner(wsk.rule, "rule") { (rule, name) =>
+        rule.create(name, trigger = triggerName, action = defaultActionName)
+      }
+
+      val verificationName = s"trigger-$currentTime"
+
+      assetHelper.withCleaner(wsk.trigger, verificationName) { (trigger, name) =>
+        trigger.get(name, NOT_FOUND)
+      }
+
+      // Rapidly produce two messages whose size are each greater than half the allowed payload limit.
+      // This should ensure that the feed fires these as two separate triggers.
+      println("Rapidly producing two large messages")
+      val producer = createProducer()
+      val firstMessage = new ProducerRecord(topic, verificationName, "")
+      producer.send(firstMessage)
+      producer.close()
+      retry(wsk.trigger.get(verificationName), 60, Some(1.second))
+  }
+
   it should "not fire a trigger for a single oversized message" in withAssetCleaner(wskprops) {
     // payload size should be over the payload limit
     val testPayloadSize = 2000000
