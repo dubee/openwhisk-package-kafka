@@ -468,15 +468,7 @@ class ConsumerProcess (Process):
 
         return offsets
 
-
-try:
-  json.loads(a)
-except ValueError:
-  print "asdf"
-
-
     def __encodeMessageIfNeeded(self, value):
-        value = None
         # let's make sure whatever data we're getting is utf-8 encoded
         try:
             value.decode('utf-8')
