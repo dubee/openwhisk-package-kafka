@@ -32,8 +32,8 @@ class Database:
     db_prefix = os.getenv('DB_PREFIX', '')
     dbname = db_prefix + 'ow_kafka_triggers'
 
-    username = os.environ['DB_USER']
-    password = os.environ['DB_PASS']
+    username = 'whisk_admin'
+    password = 'some_passw0rd'
     url = os.environ['DB_URL']
 
     filters_design_doc_id = '_design/filters'

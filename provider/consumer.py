@@ -31,7 +31,7 @@ from database import Database
 from datetime import datetime
 from datetimeutils import secondsSince
 from multiprocessing import Process, Manager
-from urlparse import urlparse
+from urllib.parse import urlparse
 from authHandler import IAMAuth
 from requests.auth import HTTPBasicAuth
 
@@ -329,7 +329,7 @@ class ConsumerProcess (Process):
                         if totalPayloadSize + messageSize > payload_limit:
                             if len(messages) == 0:
                                 logging.error('[{}] Single message at offset {} exceeds payload size limit. Skipping this message!'.format(self.trigger, message.offset()))
-                                self.consumer.commit(message=message, async=False)
+                                self.consumer.commit(message=message, asynchronous=False)
                             else:
                                 logging.debug('[{}] Message at offset {} would cause payload to exceed the size limit. Queueing up for the next round...'.format(self.trigger, message.offset()))
                                 self.queuedMessage = message
@@ -399,7 +399,7 @@ class ConsumerProcess (Process):
                         # the consumer may have consumed messages that did not make it into the messages array.
                         # the consumer may have consumed messages that did not make it into the messages array.
                         # be sure to only commit to the messages that were actually fired.
-                        self.consumer.commit(offsets=self.__getOffsetList(messages), async=False)
+                        self.consumer.commit(offsets=self.__getOffsetList(messages), asynchronous=False)
                         retry = False
                     elif self.__shouldDisable(status_code):
                         logging.error('[{}] Error talking to OpenWhisk, status code {}'.format(self.trigger, status_code))
@@ -440,22 +440,36 @@ class ConsumerProcess (Process):
                         time.sleep(sleepyTime)
                     else:
                         logging.warn("[{}] Skipping {} messages to offset {} of partition {}".format(self.trigger, len(messages), lastMessage.offset(), lastMessage.partition()))
-                        self.consumer.commit(offsets=self.__getOffsetList(messages), async=False)
+                        self.consumer.commit(offsets=self.__getOffsetList(messages), asynchronous=False)
                         retry = False
 
     # return the dict that will be sent as the trigger payload
-    def __getMessagePayload(self, message):
+    def __getMessagePayload(self, message, utf8EncodeMessage = False    ):
+        msg = self.__encodeMessageIfNeeded(message.value())
+        key = self.__encodeKeyIfNeeded(message.key())
+
+        if not utf8EncodeMessage:
+            msg = msg.decode('utf-8')
+            key = key.decode('utf-8')
+
+        print("here")
+        print(json.dumps(msg))
+        print(json.dumps(message.topic()))
+        print(json.dumps(message.partition()))
+        print(json.dumps(message.offset()))
+        print(json.dumps(key))
+
         return {
-            'value': self.__encodeMessageIfNeeded(message.value()),
-            'topic': message.topic(),
-            'partition': message.partition(),
-            'offset': message.offset(),
-            'key': self.__encodeKeyIfNeeded(message.key())
-        }
+                'value': msg,
+                'topic': message.topic(),
+                'partition': message.partition(),
+                'offset': message.offset(),
+                'key': key
+            }
 
     # return the size in bytes of the trigger payload for this message
     def __sizeMessage(self, message):
-        messagePayload = self.__getMessagePayload(message)
+        messagePayload = self.__getMessagePayload(message, False)
         return len(json.dumps(messagePayload).encode('utf-8'))
 
     # return list of TopicPartition which represent the _next_ offset to consume
